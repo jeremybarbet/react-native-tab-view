@@ -12,6 +12,7 @@ export type Props<T extends Route> = SceneRendererProps & {
   width: string;
   style?: StyleProp<ViewStyle>;
   getTabWidth: GetTabWidth;
+  fitWidth?: boolean;
 };
 
 const { interpolate, multiply, Extrapolate } = Animated;
@@ -55,14 +56,15 @@ export default class TabBarIndicator<T extends Route> extends React.Component<
     (
       position: Animated.Node<number>,
       routes: Route[],
-      getTabWidth: GetTabWidth
+      getTabWidth: GetTabWidth,
+      fitWidth
     ) => {
       const inputRange = routes.map((_, i) => i);
 
       // every index contains widths at all previous indices
       const outputRange = routes.reduce<number[]>((acc, _, i) => {
         if (i === 0) return [0];
-        return [...acc, acc[i - 1] + getTabWidth(i - 1)];
+        return [...acc, acc[i - 1] + getTabWidth(i - 1) + (fitWidth ? 40 : 0)];
       }, []);
 
       const translateX = interpolate(position, {
@@ -100,11 +102,15 @@ export default class TabBarIndicator<T extends Route> extends React.Component<
       width,
       style,
       layout,
+      fitWidth,
     } = this.props;
+
     const { routes } = navigationState;
 
     const translateX =
-      routes.length > 1 ? this.getTranslateX(position, routes, getTabWidth) : 0;
+      routes.length > 1
+        ? this.getTranslateX(position, routes, getTabWidth, fitWidth)
+        : 0;
 
     const indicatorWidth =
       width === 'auto'
@@ -119,7 +125,7 @@ export default class TabBarIndicator<T extends Route> extends React.Component<
           styles.indicator,
           // If layout is not available, use `left` property for positioning the indicator
           // This avoids rendering delay until we are able to calculate translateX
-          { width: indicatorWidth },
+          { width: indicatorWidth, marginHorizontal: fitWidth ? 20 : 0 },
           layout.width
             ? { transform: [{ translateX }] as any }
             : { left: `${(100 / routes.length) * navigationState.index}%` },

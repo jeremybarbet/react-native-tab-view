@@ -34,6 +34,7 @@ export type SceneRendererProps = {
   layout: Layout;
   position: Animated.Node<number>;
   jumpTo: (key: string) => void;
+  fitWidth?: boolean;
 };
 
 export type EventEmitterProps = {

@@ -57,6 +57,7 @@ export type Props<T extends Route> = SceneRendererProps & {
   labelStyle?: StyleProp<TextStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
+  fitWidth?: boolean;
 };
 
 type State = {
@@ -322,6 +323,7 @@ export default class TabBar<T extends Route> extends React.Component<
       contentContainerStyle,
       style,
       indicatorContainerStyle,
+      fitWidth,
     } = this.props;
     const { layout, tabWidths } = this.state;
     const { routes } = navigationState;
@@ -357,6 +359,7 @@ export default class TabBar<T extends Route> extends React.Component<
             layout,
             navigationState,
             jumpTo,
+            fitWidth,
             width: isWidthDynamic ? 'auto' : `${100 / routes.length}%`,
             style: indicatorStyle,
             getTabWidth: this.getMemoizedTabWidthGettter(
@@ -458,6 +461,7 @@ export default class TabBar<T extends Route> extends React.Component<
                 onLongPress={() => onTabLongPress && onTabLongPress({ route })}
                 labelStyle={labelStyle}
                 style={tabStyle}
+                fitWidth={fitWidth}
               />
             ))}
           </Animated.ScrollView>

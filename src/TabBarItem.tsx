@@ -40,6 +40,7 @@ type Props<T extends Route> = {
   onLongPress: () => void;
   labelStyle?: StyleProp<TextStyle>;
   style: StyleProp<ViewStyle>;
+  fitWidth?: boolean;
 };
 
 const DEFAULT_ACTIVE_COLOR = 'rgba(255, 255, 255, 1)';
@@ -97,6 +98,7 @@ export default class TabBarItem<T extends Route> extends React.Component<
       onLayout,
       onPress,
       onLongPress,
+      fitWidth,
     } = this.props;
 
     const tabIndex = navigationState.routes.indexOf(route);
@@ -196,9 +198,12 @@ export default class TabBarItem<T extends Route> extends React.Component<
 
     const tabStyle = StyleSheet.flatten(style);
     const isWidthSet = tabStyle && tabStyle.width !== undefined;
-    const tabContainerStyle: ViewStyle | null = isWidthSet ? null : { flex: 1 };
-
     const scene = { route };
+    const tabContainerStyle: ViewStyle | null = fitWidth
+      ? { marginHorizontal: 20 }
+      : isWidthSet
+      ? null
+      : { flex: 1 };
 
     let accessibilityLabel = getAccessibilityLabel(scene);
 
