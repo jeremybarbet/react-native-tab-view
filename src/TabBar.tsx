@@ -60,9 +60,11 @@ export type Props<T extends Route> = SceneRendererProps & {
   fitWidth?: boolean;
 };
 
+export type TabMeasures = { [key: string]: { width: number; x: number } };
+
 type State = {
   layout: Layout;
-  tabWidths: { [key: string]: number };
+  tabMeasures: TabMeasures;
 };
 
 export default class TabBar<T extends Route> extends React.Component<
@@ -88,26 +90,26 @@ export default class TabBar<T extends Route> extends React.Component<
 
   state: State = {
     layout: { width: 0, height: 0 },
-    tabWidths: {},
+    tabMeasures: {},
   };
 
   componentDidUpdate(prevProps: Props<T>, prevState: State) {
     const { navigationState } = this.props;
-    const { layout, tabWidths } = this.state;
+    const { layout, tabMeasures } = this.state;
 
     if (
       prevProps.navigationState.routes.length !==
         navigationState.routes.length ||
       prevProps.navigationState.index !== navigationState.index ||
       prevState.layout.width !== layout.width ||
-      prevState.tabWidths !== tabWidths
+      prevState.tabMeasures.width !== tabMeasures.width
     ) {
       if (
         this.getFlattenedTabWidth(this.props.tabStyle) === 'auto' &&
         !(
           layout.width &&
           navigationState.routes.every(
-            r => typeof tabWidths[r.key] === 'number'
+            r => typeof tabMeasures[r.key].width === 'number'
           )
         )
       ) {
@@ -121,10 +123,8 @@ export default class TabBar<T extends Route> extends React.Component<
 
   // to store the layout.width of each tab
   // when all onLayout's are fired, this would be set in state
-  private measuredTabWidths: { [key: string]: number } = {};
-
+  private measuredTabs: TabMeasures = {};
   private scrollAmount = new Animated.Value(0);
-
   private scrollView: ScrollView | undefined;
 
   private getFlattenedTabWidth = (style: StyleProp<ViewStyle>) => {
@@ -138,11 +138,11 @@ export default class TabBar<T extends Route> extends React.Component<
     layout: Layout,
     routes: Route[],
     scrollEnabled: boolean | undefined,
-    tabWidths: { [key: string]: number },
+    tabMeasures: TabMeasures,
     flattenedWidth: string | number | undefined
   ) => {
     if (flattenedWidth === 'auto') {
-      return tabWidths[routes[index].key] || 0;
+      return tabMeasures?.[routes[index]?.key]?.width || 0;
     }
 
     switch (typeof flattenedWidth) {
@@ -169,7 +169,7 @@ export default class TabBar<T extends Route> extends React.Component<
       layout: Layout,
       routes: Route[],
       scrollEnabled: boolean | undefined,
-      tabWidths: { [key: string]: number },
+      tabMeasures: TabMeasures,
       flattenedWidth: string | number | undefined
     ) => (i: number) =>
       this.getComputedTabWidth(
@@ -177,16 +177,21 @@ export default class TabBar<T extends Route> extends React.Component<
         layout,
         routes,
         scrollEnabled,
-        tabWidths,
+        tabMeasures,
         flattenedWidth
       )
+  );
+
+  private getMemoizedTabOffsetX = memoize(
+    (routes: Route[], tabMeasures: TabMeasures) => (i: number) =>
+      tabMeasures?.[routes[i]?.key]?.x || 0
   );
 
   private getMaxScrollDistance = (tabBarWidth: number, layoutWidth: number) =>
     tabBarWidth - layoutWidth;
 
   private getTabBarWidth = (props: Props<T>, state: State) => {
-    const { layout, tabWidths } = state;
+    const { layout, tabMeasures } = state;
     const { scrollEnabled, tabStyle } = props;
     const { routes } = props.navigationState;
 
@@ -198,7 +203,7 @@ export default class TabBar<T extends Route> extends React.Component<
           layout,
           routes,
           scrollEnabled,
-          tabWidths,
+          tabMeasures,
           this.getFlattenedTabWidth(tabStyle)
         ),
       0
@@ -225,7 +230,7 @@ export default class TabBar<T extends Route> extends React.Component<
   };
 
   private getScrollAmount = (props: Props<T>, state: State, index: number) => {
-    const { layout, tabWidths } = state;
+    const { layout, tabMeasures } = state;
     const { scrollEnabled, tabStyle } = props;
     const { routes } = props.navigationState;
 
@@ -236,7 +241,7 @@ export default class TabBar<T extends Route> extends React.Component<
           layout,
           routes,
           scrollEnabled,
-          tabWidths,
+          tabMeasures,
           this.getFlattenedTabWidth(tabStyle)
         );
 
@@ -325,7 +330,7 @@ export default class TabBar<T extends Route> extends React.Component<
       indicatorContainerStyle,
       fitWidth,
     } = this.props;
-    const { layout, tabWidths } = this.state;
+    const { layout, tabMeasures } = this.state;
     const { routes } = navigationState;
 
     const isWidthDynamic = this.getFlattenedTabWidth(tabStyle) === 'auto';
@@ -362,11 +367,12 @@ export default class TabBar<T extends Route> extends React.Component<
             fitWidth,
             width: isWidthDynamic ? 'auto' : `${100 / routes.length}%`,
             style: indicatorStyle,
+            getTabOffsetX: this.getMemoizedTabOffsetX(routes, tabMeasures),
             getTabWidth: this.getMemoizedTabWidthGettter(
               layout,
               routes,
               scrollEnabled,
-              tabWidths,
+              tabMeasures,
               this.getFlattenedTabWidth(tabStyle)
             ),
           })}
@@ -389,6 +395,7 @@ export default class TabBar<T extends Route> extends React.Component<
                 ? { width: tabBarWidth || tabBarWidthPercent }
                 : styles.container,
               contentContainerStyle,
+              fitWidth ? { justifyContent: 'space-around' } : undefined,
             ]}
             scrollEventThrottle={16}
             onScroll={Animated.event([
@@ -408,19 +415,22 @@ export default class TabBar<T extends Route> extends React.Component<
                 onLayout={
                   isWidthDynamic
                     ? e => {
-                        this.measuredTabWidths[route.key] =
-                          e.nativeEvent.layout.width;
+                        this.measuredTabs[route.key] = {
+                          width: e.nativeEvent.layout.width,
+                          x: e.nativeEvent.layout.x,
+                        };
 
                         // When we have measured widths for all of the tabs, we should updates the state
                         // We avoid doing separate setState for each layout since it triggers multiple renders and slows down app
                         if (
                           routes.every(
                             r =>
-                              typeof this.measuredTabWidths[r.key] === 'number'
+                              typeof this.measuredTabs[r.key]?.width ===
+                              'number'
                           )
                         ) {
                           this.setState({
-                            tabWidths: { ...this.measuredTabWidths },
+                            tabMeasures: { ...this.measuredTabs },
                           });
                         }
                       }

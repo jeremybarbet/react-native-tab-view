@@ -6,12 +6,14 @@ import memoize from './memoize';
 import { Route, SceneRendererProps, NavigationState } from './types';
 
 export type GetTabWidth = (index: number) => number;
+export type GetTabOffsetX = (index: number) => number;
 
 export type Props<T extends Route> = SceneRendererProps & {
   navigationState: NavigationState<T>;
   width: string;
   style?: StyleProp<ViewStyle>;
   getTabWidth: GetTabWidth;
+  getTabOffsetX: GetTabOffsetX;
   fitWidth?: boolean;
 };
 
@@ -57,19 +59,25 @@ export default class TabBarIndicator<T extends Route> extends React.Component<
       position: Animated.Node<number>,
       routes: Route[],
       getTabWidth: GetTabWidth,
-      fitWidth
+      getTabOffsetX: GetTabOffsetX,
+      fitWidth?: boolean
     ) => {
       const inputRange = routes.map((_, i) => i);
 
       // every index contains widths at all previous indices
-      const outputRange = routes.reduce<number[]>((acc, _, i) => {
-        if (i === 0) return [0];
-        return [...acc, acc[i - 1] + getTabWidth(i - 1) + (fitWidth ? 40 : 0)];
+      const defaultOutputRange = routes.reduce<number[]>((acc, _, i) => {
+        if (i === 0) {
+          return [0];
+        }
+
+        return [...acc, acc[i - 1] + getTabWidth(i - 1)];
       }, []);
+
+      const fitOutputRange = inputRange.map(getTabOffsetX);
 
       const translateX = interpolate(position, {
         inputRange,
-        outputRange,
+        outputRange: fitWidth ? fitOutputRange : defaultOutputRange,
         extrapolate: Extrapolate.CLAMP,
       });
 
@@ -99,6 +107,7 @@ export default class TabBarIndicator<T extends Route> extends React.Component<
       position,
       navigationState,
       getTabWidth,
+      getTabOffsetX,
       width,
       style,
       layout,
@@ -109,7 +118,13 @@ export default class TabBarIndicator<T extends Route> extends React.Component<
 
     const translateX =
       routes.length > 1
-        ? this.getTranslateX(position, routes, getTabWidth, fitWidth)
+        ? this.getTranslateX(
+            position,
+            routes,
+            getTabWidth,
+            getTabOffsetX,
+            fitWidth
+          )
         : 0;
 
     const indicatorWidth =
@@ -125,7 +140,7 @@ export default class TabBarIndicator<T extends Route> extends React.Component<
           styles.indicator,
           // If layout is not available, use `left` property for positioning the indicator
           // This avoids rendering delay until we are able to calculate translateX
-          { width: indicatorWidth, marginHorizontal: fitWidth ? 20 : 0 },
+          { width: indicatorWidth, marginHorizontal: 0 },
           layout.width
             ? { transform: [{ translateX }] as any }
             : { left: `${(100 / routes.length) * navigationState.index}%` },
